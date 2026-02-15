@@ -43,14 +43,14 @@ python3 step_1_rank.py --help
 Step 2 fetches one specific URL provided by `--in` and extracts FC2 PPV codes.
 
 ```bash
-python3 .venv/bin/python step_2_extract_codes.py --in https://placeholder.com --out out/fc2_codes_from_file.json
+.venv/bin/python step_2_extract_codes.py --in https://placeholder.com --out out/fc2_codes_from_file.json
 ```
 
 More examples:
 
 ```bash
-python3 .venv/bin/python step_2_extract_codes.py --in https://placeholder.com --mode unique
-python3 .venv/bin/python step_2_extract_codes.py --in https://placeholder.com --mode all --include-context
+.venv/bin/python step_2_extract_codes.py --in https://placeholder.com --mode unique
+.venv/bin/python step_2_extract_codes.py --in https://placeholder.com --mode all --include-context
 ```
 
 - Step 2 normalizes matches to `FC2-PPV-<digits>`.
