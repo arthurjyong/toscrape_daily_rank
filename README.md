@@ -1,4 +1,4 @@
-# fc2_weekly_rank
+# toscrape_daily_rank
 
 Small Python project that exports FC2 weekly ranking entries to machine-friendly JSON.
 
@@ -13,7 +13,7 @@ python3 run.py
 2. Install dependencies from `requirements.txt`.
 3. Install Playwright Chromium into `.pw-browsers/`.
 4. Run the scraper (`step_1_rank.py`).
-5. Write output JSON to `out/fc2_weekly_top.json` by default.
+5. Write output JSON to `out/toscrape_daily_top.json` by default.
 
 ## Common options
 
@@ -83,7 +83,7 @@ Examples:
 ```bash
 python3 step_3_common_torrents.py --no-download
 python3 step_3_common_torrents.py --force --verbose
-python3 step_3_common_torrents.py --codes-json out/fc2_codes_from_file.json --weekly-json out/fc2_weekly_top.json --out-dir out
+python3 step_3_common_torrents.py --codes-json out/fc2_codes_from_file.json --weekly-json out/toscrape_daily_top.json --out-dir out
 ```
 
 Outputs:
