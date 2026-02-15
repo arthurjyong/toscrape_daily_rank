@@ -12,7 +12,7 @@ from urllib.parse import urljoin
 
 import requests
 
-CODE_PATTERN = re.compile(r"fc2[\s_-]*ppv[\s_-]*(\d{5,10})", re.IGNORECASE)
+CODE_PATTERN = re.compile(r"item[\s_-]*(\d{5,10})", re.IGNORECASE)
 HTML_HINT_PATTERN = re.compile(r"<\s*(html|body|div|span|p|a|script|style|noscript)\b", re.IGNORECASE)
 
 
@@ -34,13 +34,21 @@ class Occurrence(TypedDict, total=False):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Extract FC2 PPV codes from a specific URL and output JSON. "
-            "Only the URL provided via --in is fetched."
+            "Extract item identifiers from a specific URL and output JSON. "
+            "Only the URL provided via input URL flags is fetched."
         )
     )
-    parser.add_argument("--in", dest="source_url", required=True, help="Specific source URL to fetch")
-    parser.add_argument("--out", default="out/fc2_codes_from_file.json", help="Output JSON path")
-    parser.add_argument("--limit", type=int, default=1000, help="Maximum unique codes to output")
+    parser.add_argument(
+        "--input-url",
+        "--input_url",
+        "--in",
+        "--url",
+        dest="input_url",
+        required=True,
+        help="Specific source URL to fetch",
+    )
+    parser.add_argument("--out", default="artifacts/step_2_codes_from_url.json", help="Output JSON path")
+    parser.add_argument("--limit", type=int, default=1000, help="Maximum unique identifiers to output")
     parser.add_argument(
         "--include-context",
         dest="include_context",
@@ -58,7 +66,7 @@ def parse_args() -> argparse.Namespace:
         "--mode",
         choices=("unique", "all"),
         default="all",
-        help="unique: first-seen unique codes; all: every occurrence plus summary",
+        help="unique: first-seen unique identifiers; all: every occurrence plus summary",
     )
     return parser.parse_args()
 
@@ -115,14 +123,14 @@ def context_snippet(text: str, start: int, end: int, window: int = 40) -> str:
 
 
 def normalize_code(digits: str) -> str:
-    return f"FC2-PPV-{digits}"
+    return f"ITEM-{digits}"
 
 
 def fetch_source(url: str) -> tuple[str, str]:
     if not re.match(r"^https?://", url, flags=re.IGNORECASE):
-        raise SystemExit("--in must be an http/https URL")
+        raise SystemExit("Input URL must be an http/https URL")
 
-    response = requests.get(url, timeout=30, headers={"User-Agent": "fc2-weekly-rank-step2/1.0"})
+    response = requests.get(url, timeout=30, headers={"User-Agent": "toscrape-step2/1.0"})
     response.raise_for_status()
     return response.text, response.headers.get("content-type", "")
 
@@ -133,9 +141,9 @@ def run() -> int:
     if args.limit <= 0:
         raise SystemExit("--limit must be greater than 0")
 
-    raw_content, content_type = fetch_source(args.source_url)
+    raw_content, content_type = fetch_source(args.input_url)
     if looks_like_html(raw_content, content_type):
-        text, link_spans = extract_visible_text_and_links(raw_content, args.source_url)
+        text, link_spans = extract_visible_text_and_links(raw_content, args.input_url)
     else:
         text, link_spans = raw_content, []
 
@@ -186,10 +194,10 @@ def run() -> int:
         unique_codes.append(row_u)
 
     if len(all_unique_seen) > args.limit:
-        warnings.append(f"Unique code output truncated to --limit={args.limit}.")
+        warnings.append(f"Unique identifier output truncated to --limit={args.limit}.")
 
     payload: dict[str, object] = {
-        "source_url": args.source_url,
+        "source_url": args.input_url,
         "scraped_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
         "limit": args.limit,
         "mode": args.mode,
@@ -209,8 +217,8 @@ def run() -> int:
     out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print(
-        f"Success: wrote {len(unique_codes)} unique codes "
-        f"({len(occurrences_raw)} occurrences) from {args.source_url} to {out_path.resolve()}"
+        f"Success: wrote {len(unique_codes)} unique identifiers "
+        f"({len(occurrences_raw)} occurrences) from {args.input_url} to {out_path.resolve()}"
     )
     return 0
 
