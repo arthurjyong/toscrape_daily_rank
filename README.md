@@ -1,6 +1,6 @@
 # toscrape_daily_rank
 
-Small Python project that exports FC2 weekly ranking entries to machine-friendly JSON.
+Small Python project that exports toscrape daily ranking entries to machine-friendly JSON.
 
 ## Quickstart
 
