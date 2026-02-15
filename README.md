@@ -15,11 +15,12 @@ First run: provide all required values once.
 python3 run.py \
   --step1-url "https://example.com/ranking" \
   --step2-url "https://example.com/source" \
-  --code-prefix "item"
+  --code-prefix "item" \
+  --seed-source "https://books.toscrape.com"
 ```
 
 What `run.py` does:
-1. Validates required inputs (`step1_url`, `step2_url`, `code_prefix`) from CLI + config.
+1. Validates required inputs (`step1_url`, `step2_url`, `code_prefix`, `seed_source`) from CLI + config.
 2. Creates `.venv/` if missing.
 3. Installs dependencies from `requirements.txt`.
 4. Installs Playwright Chromium under `.pw-browsers/`.
@@ -43,7 +44,8 @@ Schema:
 {
   "step1_url": "https://....",
   "step2_url": "https://....",
-  "code_prefix": "item"
+  "code_prefix": "item",
+  "seed_source": "https://books.toscrape.com"
 }
 ```
 
@@ -57,6 +59,7 @@ CLI flags override config values.
 - `--step1-url`
 - `--step2-url`
 - `--code-prefix`
+- `--seed-source`
 
 If any required value is missing, `run.py` exits non-zero and prints:
 - missing keys,
@@ -77,7 +80,7 @@ Step 2 forwards:
 - `--step2-mode <all|unique>` (forwards as `--mode`)
 - `--include-context` / `--no-include-context`
 
-Step 3 runs with no wrapper-provided args.
+Step 3 runs with wrapper arg `--seed-source` and forms torrent URLs as `<seed_source>/download/<id>.torrent`.
 
 ## Running steps individually
 
