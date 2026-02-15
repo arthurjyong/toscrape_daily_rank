@@ -17,8 +17,8 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
 )
 ID_PATTERNS = [
-    re.compile(r"/article/(\\d+)/"),
-    re.compile(r"article_search\\.php\\?id=(\\d+)"),
+    re.compile(r"/article/(\d+)/"),
+    re.compile(r"article_search\.php\?id=(\d+)"),
 ]
 GATE_HINTS = (
     "age",
