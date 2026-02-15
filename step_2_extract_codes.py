@@ -131,9 +131,13 @@ def context_snippet(text: str, start: int, end: int, window: int = 40) -> str:
 
 
 def normalize_code(digits: str, prefix: str) -> str:
-    tokens = prefix.strip().split()
+    tokens = tokenize_prefix(prefix)
     canon = "-".join(t.upper() for t in tokens)
     return f"{canon}-{digits}"
+
+
+def tokenize_prefix(prefix: str) -> list[str]:
+    return [token for token in re.split(r"[\s_-]+", prefix.strip()) if token]
 
 
 def build_code_pattern(prefix: str) -> re.Pattern:
@@ -142,10 +146,10 @@ def build_code_pattern(prefix: str) -> re.Pattern:
       <prefix tokens separated by [\s_-]*> then [\s_-]* then (\d{5,10})
     Prefix is treated as literal text tokens (escaped), not raw regex.
     """
-    if not prefix.strip():
+    tokens = tokenize_prefix(prefix)
+    if not tokens:
         raise SystemExit("--code-prefix must be non-empty")
 
-    tokens = prefix.strip().split()
     joined = r"[\s_-]*".join(re.escape(t) for t in tokens)
     return re.compile(rf"{joined}[\s_-]*(\d{{5,10}})", re.IGNORECASE)
 
