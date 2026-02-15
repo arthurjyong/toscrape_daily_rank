@@ -98,9 +98,9 @@ def extract_visible_text_and_links(content: str, base_url: str) -> tuple[str, li
         cursor += len(normalized)
         end = cursor
 
-        parent = node.parent
-        if isinstance(parent, Tag) and parent.name == "a":
-            href = parent.get("href")
+        anchor = node.find_parent("a")
+        if isinstance(anchor, Tag):
+            href = anchor.get("href")
             if href:
                 links.append((start, end, urljoin(base_url, href)))
 
