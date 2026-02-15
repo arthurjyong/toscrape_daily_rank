@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urljoin
 
-DEFAULT_URL = "https://adult.contents.fc2.com/ranking/article/weekly"
 USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
@@ -47,10 +46,17 @@ class ScrapeError(RuntimeError):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Scrape FC2 weekly ranking into JSON")
-    parser.add_argument("--url", default=DEFAULT_URL, help="Ranking URL")
+    parser = argparse.ArgumentParser(description="Scrape a ranking/listing page into JSON")
+    parser.add_argument(
+        "--input-url",
+        "--input_url",
+        "--url",
+        dest="input_url",
+        required=True,
+        help="Input page URL",
+    )
     parser.add_argument("--limit", type=int, default=100, help="Maximum number of entries")
-    parser.add_argument("--out", default="out/fc2_weekly_top.json", help="Output JSON path")
+    parser.add_argument("--out", default="artifacts/step_1_entries.json", help="Output JSON path")
     parser.add_argument(
         "--mode",
         choices=("auto", "requests", "playwright"),
@@ -62,24 +68,24 @@ def parse_args() -> argparse.Namespace:
         "--headful",
         dest="headless",
         action="store_false",
-        help="Run browser in headful mode (default)",
+        help="Run browser in headful mode",
     )
     head_mode_group.add_argument(
         "--headless",
         dest="headless",
         action="store_true",
-        help="Run browser in headless mode (for unattended runs)",
+        help="Run browser in headless mode (default; for unattended runs)",
     )
-    parser.set_defaults(headless=False)
+    parser.set_defaults(headless=True)
     parser.add_argument(
         "--profile-dir",
-        default=".fc2_profile",
+        default=".pw_profile",
         help="Persistent Playwright profile directory",
     )
     parser.add_argument(
         "--save-debug",
         action="store_true",
-        help="Save fetched HTML to debug_requests.html/debug_rendered.html",
+        help="Save fetched HTML under a debug directory next to --out",
     )
     return parser.parse_args()
 
@@ -115,12 +121,12 @@ def parse_entries(html: str, source_url: str, limit: int) -> list[Entry]:
         seen_ids.add(item_id)
         title = " ".join(anchor.stripped_strings).strip()
         if not title:
-            title = f"FC2 PPV {item_id}"
+            title = f"Item {item_id}"
 
         entries.append(
             Entry(
                 rank=len(entries) + 1,
-                code=f"FC2-PPV-{item_id}",
+                code=f"ITEM-{item_id}",
                 title=title,
                 metric_label=None,
                 metric_value=None,
@@ -134,7 +140,7 @@ def parse_entries(html: str, source_url: str, limit: int) -> list[Entry]:
     return entries
 
 
-def fetch_with_requests(url: str, save_debug: bool) -> tuple[str, bool]:
+def fetch_with_requests(url: str, save_debug: bool, debug_dir: Path) -> tuple[str, bool]:
     import requests
 
     response = requests.get(
@@ -145,7 +151,8 @@ def fetch_with_requests(url: str, save_debug: bool) -> tuple[str, bool]:
     response.raise_for_status()
     html = response.text
     if save_debug:
-        Path("debug_requests.html").write_text(html, encoding="utf-8")
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        (debug_dir / "requests.html").write_text(html, encoding="utf-8")
     return html, is_gate_page(html, str(response.url))
 
 
@@ -154,6 +161,7 @@ def fetch_with_playwright(
     profile_dir: str,
     headless: bool,
     save_debug: bool,
+    debug_dir: Path,
 ) -> tuple[str, bool]:
     from playwright.sync_api import sync_playwright
 
@@ -172,7 +180,8 @@ def fetch_with_playwright(
         context.close()
 
     if save_debug:
-        Path("debug_rendered.html").write_text(html, encoding="utf-8")
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        (debug_dir / "rendered.html").write_text(html, encoding="utf-8")
     return html, is_gate_page(html, current_url)
 
 
@@ -199,10 +208,12 @@ def run() -> int:
 
     gated = False
     entries: list[Entry] = []
+    out_path = Path(args.out)
+    debug_dir = out_path.parent / "debug"
 
     if args.mode in ("auto", "requests"):
-        html, gated = fetch_with_requests(args.url, args.save_debug)
-        entries = parse_entries(html, args.url, args.limit)
+        html, gated = fetch_with_requests(args.input_url, args.save_debug, debug_dir)
+        entries = parse_entries(html, args.input_url, args.limit)
         if args.mode == "requests":
             if gated:
                 warnings.append("Possible gate detected in requests response.")
@@ -215,26 +226,27 @@ def run() -> int:
             warnings.append(f"Auto mode fallback to Playwright because {reason}.")
 
         html, gated = fetch_with_playwright(
-            args.url,
+            args.input_url,
             profile_dir=args.profile_dir,
             headless=args.headless,
             save_debug=args.save_debug,
+            debug_dir=debug_dir,
         )
-        entries = parse_entries(html, args.url, args.limit)
+        entries = parse_entries(html, args.input_url, args.limit)
 
         if gated and args.headless:
             raise ScrapeError(
                 "Page still appears gated in headless Playwright. "
-                "Re-run without --headless (or pass --headful) and complete any verification manually."
+                "Re-run with --headful and complete any verification manually."
             )
 
     if not entries:
         raise ScrapeError(
             "Parsed 0 entries. Re-run with --save-debug to inspect HTML. "
-            "If gating is present, use headful mode (default), or pass --headful explicitly."
+            "If gating is present, use headful mode (--headful); headless is default."
         )
 
-    write_output(args.url, entries, warnings, Path(args.out))
+    write_output(args.input_url, entries, warnings, out_path)
     print(f"Wrote {len(entries)} entries to {args.out}")
     return 0
 
