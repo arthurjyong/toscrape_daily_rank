@@ -114,6 +114,15 @@ def planned_item(code: str, link_url: str, link_code: str, out_dir: Path, repo_r
     }
 
 
+def resolve_torrent_destination(item: dict[str, str], repo_root: Path) -> Path:
+    raw_path = Path(item["torrent_path"])
+    if raw_path.is_absolute():
+        return raw_path
+
+    # planned_item stores repo-relative torrent_path when possible.
+    return repo_root / raw_path
+
+
 def download_torrent(torrent_url: str, destination: Path) -> None:
     request = Request(torrent_url, headers={"User-Agent": USER_AGENT})
     with urlopen(request, timeout=30) as response, destination.open("wb") as fp:
@@ -187,7 +196,7 @@ def run() -> int:
         item = planned_item(code, link_url, link_code, out_dir, script_root())
         common_output.append(item)
 
-        destination = Path(item["torrent_path"])
+        destination = resolve_torrent_destination(item, script_root())
         report_row: dict[str, Any] = {**item, "status": "planned", "error": None}
 
         if not args.download:
