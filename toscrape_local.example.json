@@ -1,5 +1,1 @@
-{
-  "step1_url": "https://example.com/ranking",
-  "step2_url": "https://example.com/source",
-  "code_prefix": "item"
-}
+{ "step1_url": "https://example.com/ranking", "step2_url": "https://example.com/source", "code_prefix": "item", "seed_source": "https://books.toscrape.com" }

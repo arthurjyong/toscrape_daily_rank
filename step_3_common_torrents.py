@@ -22,6 +22,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--codes-json", default="artifacts/step_2_codes_from_url.json", help="Step 2 JSON path")
     parser.add_argument("--weekly-json", default="artifacts/step_1_entries.json", help="Step 1 JSON path")
     parser.add_argument("--out-dir", default="artifacts", help="Output directory for step 3 JSON and torrents")
+    parser.add_argument(
+        "--seed-source",
+        default="https://books.toscrape.com",
+        help="Base URL used to form {seed_source}/download/{link_code}.torrent",
+    )
     parser.add_argument("--verbose", action="store_true", help="Print per-item details")
     parser.add_argument(
         "--no-download",
@@ -99,7 +104,18 @@ def write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def planned_item(code: str, link_url: str, link_code: str, out_dir: Path, repo_root: Path) -> dict[str, str]:
+def planned_item(
+    code: str,
+    link_url: str,
+    link_code: str,
+    seed_source: str,
+    out_dir: Path,
+    repo_root: Path,
+) -> dict[str, str]:
+    base = seed_source.strip().rstrip("/")
+    if not base:
+        raise SystemExit("seed_source cannot be empty")
+
     torrent_file = out_dir / "seed" / f"{code}.torrent"
     try:
         torrent_path_str = torrent_file.relative_to(repo_root).as_posix()
@@ -109,7 +125,8 @@ def planned_item(code: str, link_url: str, link_code: str, out_dir: Path, repo_r
         "code": code,
         "link_url": link_url,
         "link_url_code": link_code,
-        "torrent_url": f"https://books.toscrape.com/download/{link_code}.torrent",
+        "seed_source": base,
+        "torrent_url": f"{base}/download/{link_code}.torrent",
         "torrent_path": torrent_path_str,
     }
 
@@ -131,6 +148,7 @@ def download_torrent(torrent_url: str, destination: Path) -> None:
 
 def run() -> int:
     args = parse_args()
+    seed_source = args.seed_source
     codes_path = resolve_input_path(args.codes_json)
     weekly_path = resolve_input_path(args.weekly_json)
     out_dir = resolve_out_dir(args.out_dir)
@@ -193,7 +211,7 @@ def run() -> int:
                 print(f"[warn] {code}: no numeric ID found in link_url={link_url!r}")
             continue
 
-        item = planned_item(code, link_url, link_code, out_dir, script_root())
+        item = planned_item(code, link_url, link_code, seed_source, out_dir, script_root())
         common_output.append(item)
 
         destination = resolve_torrent_destination(item, script_root())

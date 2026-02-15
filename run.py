@@ -23,6 +23,7 @@ class ResolvedConfig:
     step1_url: str
     step2_url: str
     code_prefix: str
+    seed_source: str
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--step1-url", help="Input URL for step_1_rank.py")
     parser.add_argument("--step2-url", help="Input URL for step_2_extract_codes.py")
     parser.add_argument("--code-prefix", help="Code prefix for step_2_extract_codes.py")
+    parser.add_argument(
+        "--seed-source",
+        help="Base URL for Step 3 torrent downloads (e.g. https://books.toscrape.com)",
+    )
 
     parser.add_argument("--limit", type=int, help="Forward to step_1_rank.py --limit")
     parser.add_argument(
@@ -94,7 +99,7 @@ def load_config() -> dict[str, str]:
         raise SystemExit(f"Config at {CONFIG_PATH} must be a JSON object.")
 
     result: dict[str, str] = {}
-    for key in ("step1_url", "step2_url", "code_prefix"):
+    for key in ("step1_url", "step2_url", "code_prefix", "seed_source"):
         value = data.get(key)
         if isinstance(value, str) and value.strip():
             result[key] = value.strip()
@@ -106,6 +111,7 @@ def resolve_config(args: argparse.Namespace, file_cfg: dict[str, str]) -> tuple[
         "step1_url": (args.step1_url or file_cfg.get("step1_url", "")).strip(),
         "step2_url": (args.step2_url or file_cfg.get("step2_url", "")).strip(),
         "code_prefix": (args.code_prefix or file_cfg.get("code_prefix", "")).strip(),
+        "seed_source": (args.seed_source or file_cfg.get("seed_source", "")).strip(),
     }
     missing = [key for key, value in merged.items() if not value]
 
@@ -116,6 +122,7 @@ def resolve_config(args: argparse.Namespace, file_cfg: dict[str, str]) -> tuple[
         step1_url=merged["step1_url"],
         step2_url=merged["step2_url"],
         code_prefix=merged["code_prefix"],
+        seed_source=merged["seed_source"],
     )
     return cfg, [], merged
 
@@ -128,7 +135,8 @@ def print_missing_inputs_and_exit(missing: list[str]) -> None:
     print("\nRun with required flags (example):", file=sys.stderr)
     print(
         "  python3 run.py --step1-url \"https://example.com/ranking\" "
-        "--step2-url \"https://example.com/source\" --code-prefix \"item\"",
+        "--step2-url \"https://example.com/source\" --code-prefix \"item\" "
+        "--seed-source \"https://example.com\"",
         file=sys.stderr,
     )
 
@@ -137,7 +145,8 @@ def print_missing_inputs_and_exit(missing: list[str]) -> None:
         '{\n'
         '  "step1_url": "https://example.com/ranking",\n'
         '  "step2_url": "https://example.com/source",\n'
-        '  "code_prefix": "item"\n'
+        '  "code_prefix": "item",\n'
+        '  "seed_source": "https://example.com"\n'
         '}',
         file=sys.stderr,
     )
@@ -145,7 +154,7 @@ def print_missing_inputs_and_exit(missing: list[str]) -> None:
 
 
 def maybe_write_config(args: argparse.Namespace, cfg: ResolvedConfig) -> None:
-    provided_required_cli = any([args.step1_url, args.step2_url, args.code_prefix])
+    provided_required_cli = any([args.step1_url, args.step2_url, args.code_prefix, args.seed_source])
     if not provided_required_cli:
         return
 
@@ -153,6 +162,7 @@ def maybe_write_config(args: argparse.Namespace, cfg: ResolvedConfig) -> None:
         "step1_url": cfg.step1_url,
         "step2_url": cfg.step2_url,
         "code_prefix": cfg.code_prefix,
+        "seed_source": cfg.seed_source,
     }
     CONFIG_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Updated local config: {CONFIG_PATH}")
@@ -216,7 +226,11 @@ def build_steps(cfg: ResolvedConfig, args: argparse.Namespace) -> list[Step]:
     return [
         Step(name="Step 1", script="step_1_rank.py", args=step1_args, needs_playwright_env=True),
         Step(name="Step 2", script="step_2_extract_codes.py", args=step2_args),
-        Step(name="Step 3", script="step_3_common_torrents.py", args=[]),
+        Step(
+            name="Step 3",
+            script="step_3_common_torrents.py",
+            args=["--seed-source", cfg.seed_source],
+        ),
         # Step 4 (future): torrent download via qBittorrent, etc.
     ]
 
@@ -226,6 +240,7 @@ def print_plan(cfg: ResolvedConfig) -> None:
     print(f"- Step 1 URL: {cfg.step1_url}")
     print(f"- Step 2 URL: {cfg.step2_url}")
     print(f"- Code prefix: {cfg.code_prefix}")
+    print(f"- Seed source: {cfg.seed_source}")
     print("- Steps: 1 -> 2 -> 3")
     print("- Outputs: artifacts/ (torrents under artifacts/seed)")
 
