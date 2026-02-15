@@ -69,3 +69,24 @@ More examples:
 
 - The scraper does not attempt to bypass age verification or authentication.
 - Output schema is stable for downstream pipelines and includes timestamp metadata plus `top_entries`.
+
+## Step 3: intersect weekly/file codes and download torrents
+
+Step 3 compares codes from step 1 and step 2, writes intersection JSON, and downloads matching torrent files.
+
+```bash
+python3 step_3_common_torrents.py
+```
+
+Examples:
+
+```bash
+python3 step_3_common_torrents.py --no-download
+python3 step_3_common_torrents.py --force --verbose
+python3 step_3_common_torrents.py --codes-json out/fc2_codes_from_file.json --weekly-json out/fc2_weekly_top.json --out-dir out
+```
+
+Outputs:
+- `out/common_fc2_ppv.json`
+- `out/download_report.json`
+- `out/seed/*.torrent`
