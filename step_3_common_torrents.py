@@ -17,11 +17,11 @@ USER_AGENT = (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Part 3: intersect FC2 codes and download matching torrent files"
+        description="Part 3: intersect codes and download matching torrent files"
     )
-    parser.add_argument("--codes-json", default="out/fc2_codes_from_file.json", help="Step 2 JSON path")
-    parser.add_argument("--weekly-json", default="out/fc2_weekly_top.json", help="Step 1 JSON path")
-    parser.add_argument("--out-dir", default="out", help="Output directory for part 3 JSON and torrents")
+    parser.add_argument("--codes-json", default="artifacts/step_2_codes_from_url.json", help="Step 2 JSON path")
+    parser.add_argument("--weekly-json", default="artifacts/step_1_entries.json", help="Step 1 JSON path")
+    parser.add_argument("--out-dir", default="artifacts", help="Output directory for step 3 JSON and torrents")
     parser.add_argument("--verbose", action="store_true", help="Print per-item details")
     parser.add_argument(
         "--no-download",
@@ -62,20 +62,20 @@ def resolve_out_dir(raw_path: str) -> Path:
     return script_root() / out_dir
 
 
-def canonicalize_fc2_code(value: Any) -> str | None:
+def canonicalize_code(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
 
-    explicit = re.search(r"fc2[\s_-]*ppv[\s_-]*(\d+)", value, flags=re.IGNORECASE)
+    explicit = re.search(r"item[\s_-]*(\d+)", value, flags=re.IGNORECASE)
     if explicit:
-        return f"FC2-PPV-{explicit.group(1)}"
+        return f"ITEM-{explicit.group(1)}"
 
     groups = re.findall(r"\d+", value)
     if not groups:
         return None
 
     fallback_digits = max(enumerate(groups), key=lambda item: (len(item[1]), item[0]))[1]
-    return f"FC2-PPV-{fallback_digits}"
+    return f"ITEM-{fallback_digits}"
 
 
 def extract_link_url_code(link_url: Any) -> str | None:
@@ -106,7 +106,7 @@ def planned_item(code: str, link_url: str, link_code: str, out_dir: Path, repo_r
     except ValueError:
         torrent_path_str = torrent_file.as_posix()
     return {
-        "fc2_ppv_code": code,
+        "code": code,
         "link_url": link_url,
         "link_url_code": link_code,
         "torrent_url": f"https://books.toscrape.com/download/{link_code}.torrent",
@@ -146,7 +146,7 @@ def run() -> int:
     weekly_entries = weekly_payload.get("top_entries", [])
     weekly_codes: set[str] = set()
     for entry in weekly_entries:
-        canonical = canonicalize_fc2_code(entry.get("code") if isinstance(entry, dict) else None)
+        canonical = canonicalize_code(entry.get("code") if isinstance(entry, dict) else None)
         if canonical:
             weekly_codes.add(canonical)
 
@@ -154,7 +154,7 @@ def run() -> int:
     for record in codes_payload.get("unique_codes", []):
         if not isinstance(record, dict):
             continue
-        canonical = canonicalize_fc2_code(record.get("code"))
+        canonical = canonicalize_code(record.get("code"))
         if canonical:
             file_codes_map[canonical] = record
 
@@ -180,7 +180,7 @@ def run() -> int:
             skipped_no_link_code += 1
             report_output.append(
                 {
-                    "fc2_ppv_code": code,
+                    "code": code,
                     "link_url": link_url if isinstance(link_url, str) else "",
                     "link_url_code": "",
                     "torrent_url": "",
@@ -229,14 +229,14 @@ def run() -> int:
                 print(f"[fail] {code}: {exc}")
         report_output.append(report_row)
 
-    common_path = out_dir / "common_fc2_ppv.json"
+    common_path = out_dir / "common_codes.json"
     report_path = out_dir / "download_report.json"
     write_json(common_path, common_output)
     write_json(report_path, report_output)
 
     print("Summary")
-    print(f"- total weekly codes: {len(weekly_codes)}")
-    print(f"- total codes-json codes: {len(file_codes_map)}")
+    print(f"- total step1 codes: {len(weekly_codes)}")
+    print(f"- total step2 codes: {len(file_codes_map)}")
     print(f"- intersection count: {len(common_codes)}")
     print(f"- skipped (no link_url_code): {skipped_no_link_code}")
     print(f"- downloaded: {downloaded_count}")
