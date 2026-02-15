@@ -1,8 +1,9 @@
 .venv/
 .pw-browsers/
-.fc2_profile/
-out/
-debug_*.html
+.pw_profile/
+artifacts/
 __pycache__/
 *.pyc
+debug_*.html
 step2_debug_*
+toscrape_local.json
