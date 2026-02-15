@@ -57,11 +57,20 @@ def parse_args() -> argparse.Namespace:
         default="auto",
         help="Fetch mode",
     )
-    parser.add_argument(
+    head_mode_group = parser.add_mutually_exclusive_group()
+    head_mode_group.add_argument(
         "--headful",
-        action="store_true",
-        help="Run browser in headful mode (needed for manual age verification)",
+        dest="headless",
+        action="store_false",
+        help="Run browser in headful mode (default)",
     )
+    head_mode_group.add_argument(
+        "--headless",
+        dest="headless",
+        action="store_true",
+        help="Run browser in headless mode (for unattended runs)",
+    )
+    parser.set_defaults(headless=False)
     parser.add_argument(
         "--profile-dir",
         default=".fc2_profile",
@@ -143,7 +152,7 @@ def fetch_with_requests(url: str, save_debug: bool) -> tuple[str, bool]:
 def fetch_with_playwright(
     url: str,
     profile_dir: str,
-    headful: bool,
+    headless: bool,
     save_debug: bool,
 ) -> tuple[str, bool]:
     from playwright.sync_api import sync_playwright
@@ -153,7 +162,7 @@ def fetch_with_playwright(
     with sync_playwright() as p:
         context = p.chromium.launch_persistent_context(
             profile_dir,
-            headless=not headful,
+            headless=headless,
         )
         page = context.pages[0] if context.pages else context.new_page()
         page.goto(url, wait_until="domcontentloaded", timeout=90_000)
@@ -208,21 +217,21 @@ def run() -> int:
         html, gated = fetch_with_playwright(
             args.url,
             profile_dir=args.profile_dir,
-            headful=args.headful,
+            headless=args.headless,
             save_debug=args.save_debug,
         )
         entries = parse_entries(html, args.url, args.limit)
 
-        if gated and not args.headful:
+        if gated and args.headless:
             raise ScrapeError(
                 "Page still appears gated in headless Playwright. "
-                "Re-run with --headful and complete any verification manually."
+                "Re-run without --headless (or pass --headful) and complete any verification manually."
             )
 
     if not entries:
         raise ScrapeError(
             "Parsed 0 entries. Re-run with --save-debug to inspect HTML. "
-            "If gating is present, re-run with --headful."
+            "If gating is present, use headful mode (default), or pass --headful explicitly."
         )
 
     write_output(args.url, entries, warnings, Path(args.out))

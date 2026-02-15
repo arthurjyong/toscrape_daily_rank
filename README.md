@@ -21,21 +21,29 @@ python3 run.py
 python3 run.py --help
 python3 run.py --limit 50
 python3 run.py --mode requests --save-debug
-python3 run.py --headful
+python3 run.py --mode playwright
+python3 run.py --mode playwright --headless
 ```
 
-- Default behavior is **headless**.
-- Use `--headful` only if verification is required or scraping fails due to gating.
+- Default Playwright behavior is **headful**.
+- Use `--headless` for unattended runs.
+- `--headful` is optional and kept for explicitness; `--headful`/`--headless` are mutually exclusive.
 - Cookies/session data are stored in `.fc2_profile/`.
 - Playwright browser binaries are stored in `.pw-browsers/`.
 - JSON output goes to `out/`.
+
+Quick sanity check:
+
+```bash
+python3 step_1_rank.py --help
+```
 
 ## Troubleshooting
 
 - **Parsed 0 entries**
   - Re-run with `--save-debug` to write `debug_requests.html` / `debug_rendered.html` and inspect the fetched page.
 - **Possible age gate / verification page**
-  - Re-run with `--headful`, complete verification manually in the launched browser, then run again.
+  - Re-run without `--headless` (or with `--headful`), complete verification manually in the launched browser, then run again.
 
 ## Notes
 
