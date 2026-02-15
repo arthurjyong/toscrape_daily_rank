@@ -12,7 +12,6 @@ from urllib.parse import urljoin
 
 import requests
 
-CODE_PATTERN = re.compile(r"item[\s_-]*(\d{5,10})", re.IGNORECASE)
 HTML_HINT_PATTERN = re.compile(r"<\s*(html|body|div|span|p|a|script|style|noscript)\b", re.IGNORECASE)
 
 
@@ -49,6 +48,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--out", default="artifacts/step_2_codes_from_url.json", help="Output JSON path")
     parser.add_argument("--limit", type=int, default=1000, help="Maximum unique identifiers to output")
+    parser.add_argument(
+        "--code-prefix",
+        type=str,
+        default="item",
+        help=(
+            "Literal text immediately preceding the digits; may contain spaces; "
+            "case-insensitive; separators may be space/_/-."
+        ),
+    )
     parser.add_argument(
         "--include-context",
         dest="include_context",
@@ -122,8 +130,24 @@ def context_snippet(text: str, start: int, end: int, window: int = 40) -> str:
     return re.sub(r"\s+", " ", snippet).strip()
 
 
-def normalize_code(digits: str) -> str:
-    return f"ITEM-{digits}"
+def normalize_code(digits: str, prefix: str) -> str:
+    tokens = prefix.strip().split()
+    canon = "-".join(t.upper() for t in tokens)
+    return f"{canon}-{digits}"
+
+
+def build_code_pattern(prefix: str) -> re.Pattern:
+    """
+    Build a safe regex that matches:
+      <prefix tokens separated by [\s_-]*> then [\s_-]* then (\d{5,10})
+    Prefix is treated as literal text tokens (escaped), not raw regex.
+    """
+    if not prefix.strip():
+        raise SystemExit("--code-prefix must be non-empty")
+
+    tokens = prefix.strip().split()
+    joined = r"[\s_-]*".join(re.escape(t) for t in tokens)
+    return re.compile(rf"{joined}[\s_-]*(\d{{5,10}})", re.IGNORECASE)
 
 
 def fetch_source(url: str) -> tuple[str, str]:
@@ -137,6 +161,7 @@ def fetch_source(url: str) -> tuple[str, str]:
 
 def run() -> int:
     args = parse_args()
+    code_pattern = build_code_pattern(args.code_prefix)
 
     if args.limit <= 0:
         raise SystemExit("--limit must be greater than 0")
@@ -150,8 +175,8 @@ def run() -> int:
     warnings: list[str] = []
 
     occurrences_raw: list[tuple[str, int, int, str | None]] = []
-    for match in CODE_PATTERN.finditer(text):
-        code = normalize_code(match.group(1))
+    for match in code_pattern.finditer(text):
+        code = normalize_code(match.group(1), args.code_prefix)
         link_url = next(
             (href for start, end, href in link_spans if start <= match.start() and match.end() <= end),
             None,
@@ -218,7 +243,8 @@ def run() -> int:
 
     print(
         f"Success: wrote {len(unique_codes)} unique identifiers "
-        f"({len(occurrences_raw)} occurrences) from {args.input_url} to {out_path.resolve()}"
+        f"({len(occurrences_raw)} occurrences) from {args.input_url} to {out_path.resolve()} "
+        f"(prefix={args.code_prefix!r})"
     )
     return 0
 
