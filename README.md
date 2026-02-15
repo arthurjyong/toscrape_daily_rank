@@ -49,11 +49,13 @@ Step 2 fetches one specific URL provided by `--in` and extracts FC2 PPV codes.
 More examples:
 
 ```bash
-.venv/bin/python step_2_extract_codes.py --in https://placeholder.com --mode unique
+.venv/bin/python step_2_extract_codes.py --in https://placeholder.com --mode unique --no-include-context
 .venv/bin/python step_2_extract_codes.py --in https://placeholder.com --mode all --include-context
 ```
 
 - Step 2 normalizes matches to `FC2-PPV-<digits>`.
+- Step 2 defaults to `--mode all --include-context`.
+- If a matched code appears inside a hyperlink, the JSON includes `link_url`.
 - `rank` means **order of first appearance** for `unique_codes`.
 
 ## Troubleshooting

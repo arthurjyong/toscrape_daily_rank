@@ -8,6 +8,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TypedDict
+from urllib.parse import urljoin
 
 import requests
 
@@ -20,12 +21,14 @@ class UniqueCode(TypedDict, total=False):
     code: str
     count: int
     context: str
+    link_url: str
 
 
 class Occurrence(TypedDict, total=False):
     rank: int
     code: str
     context: str
+    link_url: str
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,13 +43,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=1000, help="Maximum unique codes to output")
     parser.add_argument(
         "--include-context",
+        dest="include_context",
         action="store_true",
         help="Include a short surrounding text snippet for occurrences",
     )
     parser.add_argument(
+        "--no-include-context",
+        dest="include_context",
+        action="store_false",
+        help="Do not include context snippets",
+    )
+    parser.set_defaults(include_context=True)
+    parser.add_argument(
         "--mode",
         choices=("unique", "all"),
-        default="unique",
+        default="all",
         help="unique: first-seen unique codes; all: every occurrence plus summary",
     )
     return parser.parse_args()
@@ -59,14 +70,41 @@ def looks_like_html(content: str, content_type: str | None) -> bool:
     return bool(HTML_HINT_PATTERN.search(snippet))
 
 
-def extract_visible_text(content: str) -> str:
+def extract_visible_text_and_links(content: str, base_url: str) -> tuple[str, list[tuple[int, int, str]]]:
     from bs4 import BeautifulSoup
+    from bs4 import Tag
 
     soup = BeautifulSoup(content, "lxml")
     for tag_name in ("script", "style", "noscript"):
         for tag in soup.find_all(tag_name):
             tag.decompose()
-    return soup.get_text(" ", strip=True)
+
+    pieces: list[str] = []
+    links: list[tuple[int, int, str]] = []
+    cursor = 0
+
+    for node in soup.find_all(string=True):
+        text = str(node)
+        normalized = re.sub(r"\s+", " ", text).strip()
+        if not normalized:
+            continue
+
+        if pieces:
+            pieces.append(" ")
+            cursor += 1
+
+        start = cursor
+        pieces.append(normalized)
+        cursor += len(normalized)
+        end = cursor
+
+        anchor = node.find_parent("a")
+        if isinstance(anchor, Tag):
+            href = anchor.get("href")
+            if href:
+                links.append((start, end, urljoin(base_url, href)))
+
+    return "".join(pieces), links
 
 
 def context_snippet(text: str, start: int, end: int, window: int = 40) -> str:
@@ -96,28 +134,37 @@ def run() -> int:
         raise SystemExit("--limit must be greater than 0")
 
     raw_content, content_type = fetch_source(args.source_url)
-    text = extract_visible_text(raw_content) if looks_like_html(raw_content, content_type) else raw_content
+    if looks_like_html(raw_content, content_type):
+        text, link_spans = extract_visible_text_and_links(raw_content, args.source_url)
+    else:
+        text, link_spans = raw_content, []
 
     warnings: list[str] = []
 
-    occurrences_raw: list[tuple[str, int, int]] = []
+    occurrences_raw: list[tuple[str, int, int, str | None]] = []
     for match in CODE_PATTERN.finditer(text):
         code = normalize_code(match.group(1))
-        occurrences_raw.append((code, match.start(), match.end()))
+        link_url = next(
+            (href for start, end, href in link_spans if start <= match.start() and match.end() <= end),
+            None,
+        )
+        occurrences_raw.append((code, match.start(), match.end(), link_url))
 
-    counts = Counter(code for code, _, _ in occurrences_raw)
+    counts = Counter(code for code, _, _, _ in occurrences_raw)
 
     occurrences: list[Occurrence] = []
     unique_codes: list[UniqueCode] = []
 
     first_seen: dict[str, int] = {}
     all_unique_seen: set[str] = set()
-    for code, start, end in occurrences_raw:
+    for code, start, end, link_url in occurrences_raw:
         all_unique_seen.add(code)
         if args.mode == "all":
             row: Occurrence = {"rank": len(occurrences) + 1, "code": code}
             if args.include_context:
                 row["context"] = context_snippet(text, start, end)
+            if link_url:
+                row["link_url"] = link_url
             occurrences.append(row)
 
         if code in first_seen:
@@ -134,6 +181,8 @@ def run() -> int:
         }
         if args.include_context:
             row_u["context"] = context_snippet(text, start, end)
+        if link_url:
+            row_u["link_url"] = link_url
         unique_codes.append(row_u)
 
     if len(all_unique_seen) > args.limit:
