@@ -100,7 +100,7 @@ def write_json(path: Path, payload: Any) -> None:
 
 
 def planned_item(code: str, link_url: str, link_code: str, out_dir: Path, repo_root: Path) -> dict[str, str]:
-    torrent_file = out_dir / "seed" / f"{link_code}.torrent"
+    torrent_file = out_dir / "seed" / f"{code}.torrent"
     try:
         torrent_path_str = torrent_file.relative_to(repo_root).as_posix()
     except ValueError:
