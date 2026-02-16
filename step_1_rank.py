@@ -56,6 +56,16 @@ def parse_args() -> argparse.Namespace:
         help="Input page URL",
     )
     parser.add_argument("--limit", type=int, default=100, help="Maximum number of entries")
+    parser.add_argument(
+        "--code-prefix",
+        "--code_prefix",
+        type=str,
+        default="item",
+        help=(
+            "Code prefix used when generating Entry.code; normalized the same way as Step 2 "
+            "(split on space/_/-, uppercase, join with '-')."
+        ),
+    )
     parser.add_argument("--out", default="artifacts/step_1_entries.json", help="Output JSON path")
     parser.add_argument(
         "--mode",
@@ -105,7 +115,17 @@ def extract_id(href: str) -> Optional[str]:
     return None
 
 
-def parse_entries(html: str, source_url: str, limit: int) -> list[Entry]:
+def tokenize_prefix(prefix: str) -> list[str]:
+    return [token for token in re.split(r"[\s_-]+", prefix.strip()) if token]
+
+
+def normalize_code(digits: str, prefix: str) -> str:
+    tokens = tokenize_prefix(prefix)
+    canon = "-".join(token.upper() for token in tokens)
+    return f"{canon}-{digits}"
+
+
+def parse_entries(html: str, source_url: str, limit: int, code_prefix: str) -> list[Entry]:
     from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(html, "lxml")
@@ -126,7 +146,7 @@ def parse_entries(html: str, source_url: str, limit: int) -> list[Entry]:
         entries.append(
             Entry(
                 rank=len(entries) + 1,
-                code=f"ITEM-{item_id}",
+                code=normalize_code(item_id, code_prefix),
                 title=title,
                 metric_label=None,
                 metric_value=None,
@@ -185,10 +205,19 @@ def fetch_with_playwright(
     return html, is_gate_page(html, current_url)
 
 
-def write_output(source_url: str, entries: list[Entry], warnings: list[str], out_path: Path) -> None:
+def write_output(
+    source_url: str,
+    entries: list[Entry],
+    warnings: list[str],
+    out_path: Path,
+    code_prefix: str,
+) -> None:
     now = datetime.now(timezone.utc)
+    code_prefix_tokens = tokenize_prefix(code_prefix)
     payload = {
         "source_url": source_url,
+        "code_prefix": code_prefix,
+        "code_prefix_canon": "-".join(token.upper() for token in code_prefix_tokens),
         "scraped_at_utc": now.strftime("%Y-%m-%d %H:%M:%S"),
         "window_start_utc": (now - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S"),
         "window_end_utc": now.strftime("%Y-%m-%d %H:%M:%S"),
@@ -205,6 +234,8 @@ def run() -> int:
 
     if args.limit <= 0:
         raise ScrapeError("--limit must be greater than 0")
+    if not tokenize_prefix(args.code_prefix):
+        raise ScrapeError("--code-prefix must be non-empty")
 
     gated = False
     entries: list[Entry] = []
@@ -213,7 +244,7 @@ def run() -> int:
 
     if args.mode in ("auto", "requests"):
         html, gated = fetch_with_requests(args.input_url, args.save_debug, debug_dir)
-        entries = parse_entries(html, args.input_url, args.limit)
+        entries = parse_entries(html, args.input_url, args.limit, args.code_prefix)
         if args.mode == "requests":
             if gated:
                 warnings.append("Possible gate detected in requests response.")
@@ -232,7 +263,7 @@ def run() -> int:
             save_debug=args.save_debug,
             debug_dir=debug_dir,
         )
-        entries = parse_entries(html, args.input_url, args.limit)
+        entries = parse_entries(html, args.input_url, args.limit, args.code_prefix)
 
         if gated and args.headless:
             raise ScrapeError(
@@ -246,7 +277,7 @@ def run() -> int:
             "If gating is present, use headful mode (--headful); headless is default."
         )
 
-    write_output(args.input_url, entries, warnings, out_path)
+    write_output(args.input_url, entries, warnings, out_path, args.code_prefix)
     print(f"Wrote {len(entries)} entries to {args.out}")
     return 0
 

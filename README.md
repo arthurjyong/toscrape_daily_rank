@@ -1,7 +1,7 @@
 # toscrape_daily_rank
 
 Small Python project with a 3-step pipeline:
-1. Step 1 (`step_1_rank.py`): scrape ranking/listing entries into JSON.
+1. Step 1 (`step_1_rank.py`): scrape ranking/listing entries into JSON and generate normalized codes using `--code-prefix`.
 2. Step 2 (`step_2_extract_codes.py`): extract normalized codes from a URL.
 3. Step 3 (`step_3_common_torrents.py`): intersect codes and download matching torrents.
 
@@ -61,6 +61,9 @@ CLI flags override config values.
 - `--code-prefix`
 - `--seed-source`
 
+`--code-prefix` must not contain numeric-only tokens (for example, `FC2-123456` is rejected).
+This prevents false canonical-code matches in Step 3.
+
 If any required value is missing, `run.py` exits non-zero and prints:
 - missing keys,
 - an exact example command,
@@ -69,6 +72,7 @@ If any required value is missing, `run.py` exits non-zero and prints:
 ### Optional forwarded flags
 
 Step 1 forwards:
+- wrapper-required `--code-prefix <text>` (resolved from CLI/config and passed to Step 1 + Step 2)
 - `--limit <int>`
 - `--mode <auto|requests|playwright>`
 - `--headless` / `--headful`
@@ -87,7 +91,7 @@ Step 3 runs with wrapper arg `--seed-source` and forms torrent URLs as `<seed_so
 The step scripts are unchanged and still runnable directly:
 
 ```bash
-python3 step_1_rank.py --input-url "https://example.com/ranking"
+python3 step_1_rank.py --input-url "https://example.com/ranking" --code-prefix "item"
 python3 step_2_extract_codes.py --input-url "https://example.com/source" --code-prefix "item"
 python3 step_3_common_torrents.py
 ```
