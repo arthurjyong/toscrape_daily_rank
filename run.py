@@ -45,7 +45,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     parser.add_argument("--step1-url", help="Input URL for step_1_rank.py")
     parser.add_argument("--step2-url", help="Input URL for step_2_extract_codes.py")
-    parser.add_argument("--code-prefix", help="Code prefix for Step 1 + Step 2 code normalization")
+    parser.add_argument("--code-prefix", help="Code prefix for Step 1 + Step 2 + Step 3 code normalization")
     parser.add_argument(
         "--seed-source",
         help="Base URL for Step 3 torrent downloads (e.g. https://books.toscrape.com)",
@@ -238,7 +238,7 @@ def build_steps(cfg: ResolvedConfig, args: argparse.Namespace) -> list[Step]:
         Step(
             name="Step 3",
             script="step_3_common_torrents.py",
-            args=["--seed-source", cfg.seed_source],
+            args=["--code-prefix", cfg.code_prefix, "--seed-source", cfg.seed_source],
         ),
         # Step 4 (future): torrent download via qBittorrent, etc.
     ]

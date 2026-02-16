@@ -23,6 +23,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--weekly-json", default="artifacts/step_1_entries.json", help="Step 1 JSON path")
     parser.add_argument("--out-dir", default="artifacts", help="Output directory for step 3 JSON and torrents")
     parser.add_argument(
+        "--code-prefix",
+        "--code_prefix",
+        dest="code_prefix",
+        default="item",
+        help="Code prefix used for canonical code matching (default: item)",
+    )
+    parser.add_argument(
         "--seed-source",
         default="https://books.toscrape.com",
         help="Base URL used to form {seed_source}/download/{link_code}.torrent",
@@ -67,20 +74,39 @@ def resolve_out_dir(raw_path: str) -> Path:
     return script_root() / out_dir
 
 
-def canonicalize_code(value: Any) -> str | None:
+def tokenize_prefix(prefix: str) -> list[str]:
+    return [token for token in re.split(r"[\s_-]+", prefix.strip()) if token]
+
+
+def canonical_prefix(prefix: str) -> str:
+    tokens = tokenize_prefix(prefix)
+    if not tokens:
+        tokens = ["item"]
+    return "-".join(token.upper() for token in tokens)
+
+
+def prefix_digits_regex(prefix: str) -> re.Pattern[str]:
+    tokens = tokenize_prefix(prefix)
+    if not tokens:
+        tokens = ["item"]
+    pattern = r"[\s_-]*".join(re.escape(token) for token in tokens) + r"[\s_-]*(\d+)"
+    return re.compile(pattern, re.IGNORECASE)
+
+
+def canonicalize_code(value: Any, code_prefix: str) -> str | None:
     if not isinstance(value, str):
         return None
 
-    explicit = re.search(r"item[\s_-]*(\d+)", value, flags=re.IGNORECASE)
+    explicit = prefix_digits_regex(code_prefix).search(value)
     if explicit:
-        return f"ITEM-{explicit.group(1)}"
+        return f"{canonical_prefix(code_prefix)}-{explicit.group(1)}"
 
     groups = re.findall(r"\d+", value)
     if not groups:
         return None
 
     fallback_digits = max(enumerate(groups), key=lambda item: (len(item[1]), item[0]))[1]
-    return f"ITEM-{fallback_digits}"
+    return f"{canonical_prefix(code_prefix)}-{fallback_digits}"
 
 
 def extract_link_url_code(link_url: Any) -> str | None:
@@ -164,7 +190,7 @@ def run() -> int:
     weekly_entries = weekly_payload.get("top_entries", [])
     weekly_codes: set[str] = set()
     for entry in weekly_entries:
-        canonical = canonicalize_code(entry.get("code") if isinstance(entry, dict) else None)
+        canonical = canonicalize_code(entry.get("code") if isinstance(entry, dict) else None, args.code_prefix)
         if canonical:
             weekly_codes.add(canonical)
 
@@ -172,7 +198,7 @@ def run() -> int:
     for record in codes_payload.get("unique_codes", []):
         if not isinstance(record, dict):
             continue
-        canonical = canonicalize_code(record.get("code"))
+        canonical = canonicalize_code(record.get("code"), args.code_prefix)
         if canonical:
             file_codes_map[canonical] = record
 
