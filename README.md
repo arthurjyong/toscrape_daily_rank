@@ -5,6 +5,11 @@ Small Python project with a 3-step pipeline:
 2. Step 2 (`step_2_extract_codes.py`): extract normalized codes from a URL.
 3. Step 3 (`step_3_common_torrents.py`): intersect codes and download matching torrents.
 
+Canonical code format across all steps is:
+- Split `code_prefix` by whitespace, underscore, or hyphen.
+- Uppercase tokens and join with `-`.
+- Final code shape: `<CANON_PREFIX>-<digits>` (example: `fc2 ppv` + `1234567` => `FC2-PPV-1234567`).
+
 `run.py` is the recommended entrypoint for running Step 1 -> Step 2 -> Step 3 reliably.
 
 ## Quickstart (recommended)
@@ -72,7 +77,7 @@ If any required value is missing, `run.py` exits non-zero and prints:
 ### Optional forwarded flags
 
 Step 1 forwards:
-- wrapper-required `--code-prefix <text>` (resolved from CLI/config and passed to Step 1 + Step 2)
+- wrapper-required `--code-prefix <text>` (resolved from CLI/config and passed to Step 1 + Step 2 + Step 3)
 - `--limit <int>`
 - `--mode <auto|requests|playwright>`
 - `--headless` / `--headful`
@@ -84,7 +89,9 @@ Step 2 forwards:
 - `--step2-mode <all|unique>` (forwards as `--mode`)
 - `--include-context` / `--no-include-context`
 
-Step 3 runs with wrapper arg `--seed-source` and forms torrent URLs as `<seed_source>/download/<id>.torrent`.
+Step 3 runs with wrapper args:
+- `--code-prefix <text>` (resolved from CLI/config; used for canonical matching in Step 3)
+- `--seed-source <url>` (forms torrent URLs as `<seed_source>/download/<id>.torrent`)
 
 ## Running steps individually
 
@@ -93,7 +100,7 @@ The step scripts are unchanged and still runnable directly:
 ```bash
 python3 step_1_rank.py --input-url "https://example.com/ranking" --code-prefix "item"
 python3 step_2_extract_codes.py --input-url "https://example.com/source" --code-prefix "item"
-python3 step_3_common_torrents.py
+python3 step_3_common_torrents.py --code-prefix "fc2 ppv"
 ```
 
 ## Output locations
