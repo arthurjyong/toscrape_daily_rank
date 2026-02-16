@@ -61,6 +61,9 @@ CLI flags override config values.
 - `--code-prefix`
 - `--seed-source`
 
+`--code-prefix` must not contain numeric-only tokens (for example, `FC2-123456` is rejected).
+This prevents false canonical-code matches in Step 3.
+
 If any required value is missing, `run.py` exits non-zero and prints:
 - missing keys,
 - an exact example command,

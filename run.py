@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import venv
@@ -117,6 +118,14 @@ def resolve_config(args: argparse.Namespace, file_cfg: dict[str, str]) -> tuple[
 
     if missing:
         return None, missing, merged
+
+    numeric_tokens = [token for token in re.split(r"[\s_-]+", merged["code_prefix"]) if token.isdigit()]
+    if numeric_tokens:
+        numeric_text = ", ".join(f"{token!r}" for token in numeric_tokens)
+        raise SystemExit(
+            "--code-prefix cannot include numeric-only tokens "
+            f"({numeric_text}); this can cause false code collisions in Step 3."
+        )
 
     cfg = ResolvedConfig(
         step1_url=merged["step1_url"],
