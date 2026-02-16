@@ -44,7 +44,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     parser.add_argument("--step1-url", help="Input URL for step_1_rank.py")
     parser.add_argument("--step2-url", help="Input URL for step_2_extract_codes.py")
-    parser.add_argument("--code-prefix", help="Code prefix for step_2_extract_codes.py")
+    parser.add_argument("--code-prefix", help="Code prefix for Step 1 + Step 2 code normalization")
     parser.add_argument(
         "--seed-source",
         help="Base URL for Step 3 torrent downloads (e.g. https://books.toscrape.com)",
@@ -199,7 +199,7 @@ def bootstrap(py: Path) -> None:
 
 
 def build_steps(cfg: ResolvedConfig, args: argparse.Namespace) -> list[Step]:
-    step1_args = ["--input-url", cfg.step1_url]
+    step1_args = ["--input-url", cfg.step1_url, "--code-prefix", cfg.code_prefix]
     if args.limit is not None:
         step1_args += ["--limit", str(args.limit)]
     if args.mode:
