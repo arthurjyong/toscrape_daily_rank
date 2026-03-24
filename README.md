@@ -100,7 +100,7 @@ The step scripts are unchanged and still runnable directly:
 ```bash
 python3 step_1_rank.py --input-url "https://example.com/ranking" --code-prefix "item"
 python3 step_2_extract_codes.py --input-url "https://example.com/source" --code-prefix "item"
-python3 step_3_common_torrents.py --code-prefix "fc2 ppv"
+python3 step_3_common_torrents.py --code-prefix "abc 123"
 ```
 
 ## Output locations
