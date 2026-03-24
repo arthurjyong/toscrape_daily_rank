@@ -8,7 +8,7 @@ Small Python project with a 3-step pipeline:
 Canonical code format across all steps is:
 - Split `code_prefix` by whitespace, underscore, or hyphen.
 - Uppercase tokens and join with `-`.
-- Final code shape: `<CANON_PREFIX>-<digits>` (example: `fc2 ppv` + `1234567` => `FC2-PPV-1234567`).
+- Final code shape: `<CANON_PREFIX>-<digits>` (example: `ABC EFG` + `1234567` => `ABC-EFG-1234567`).
 
 `run.py` is the recommended entrypoint for running Step 1 -> Step 2 -> Step 3 reliably.
 
@@ -66,7 +66,7 @@ CLI flags override config values.
 - `--code-prefix`
 - `--seed-source`
 
-`--code-prefix` must not contain numeric-only tokens (for example, `FC2-123456` is rejected).
+`--code-prefix` must not contain numeric-only tokens (for example, `ABC-123456` is rejected).
 This prevents false canonical-code matches in Step 3.
 
 If any required value is missing, `run.py` exits non-zero and prints:
